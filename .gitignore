@@ -1,0 +1,4 @@
+.ENV.txt
+.env
+.env.*
+__pycache__/

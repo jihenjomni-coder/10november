@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f7f2">
+  <title>Roamly — your travel sidekick</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17251e;
+      --muted: #758078;
+      --green: #2e694d;
+      --green-dark: #214e39;
+      --paper: #f6f7f2;
+      --line: #e8ebe4;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(ellipse at 87% 8%, #e5eee3 0, transparent 33rem),
+        var(--paper);
+    }
+    .shell { max-width: 1040px; margin: auto; padding: 28px 28px 20px; }
+    header { display: flex; align-items: center; justify-content: space-between; }
+    .brand { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 750; letter-spacing: -.5px; }
+    .brand-icon { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 12px; color: white; background: var(--green); }
+    .badge { padding: 8px 12px; border: 1px solid #dfe7dd; border-radius: 99px; color: #53665a; background: #ffffff9e; font-size: 12px; }
+    main { max-width: 760px; margin: 54px auto 0; }
+    .intro { margin-bottom: 32px; text-align: center; }
+    .eyebrow { color: var(--green); font-size: 12px; font-weight: 750; letter-spacing: 1.7px; text-transform: uppercase; }
+    h1 { margin: 13px 0 10px; font-size: clamp(36px, 7vw, 58px); line-height: 1.05; letter-spacing: -2.7px; }
+    .intro p { margin: 0; color: var(--muted); font-size: 16px; }
+    .chat-card { overflow: hidden; border: 1px solid #e6e9e2; border-radius: 22px; background: #fff; box-shadow: 0 20px 70px #31453212; }
+    .messages { min-height: 295px; max-height: 52vh; overflow-y: auto; padding: 25px; }
+    .welcome { padding: 22px; border-radius: 16px; background: #f5f7f2; }
+    .welcome h2 { margin: 0 0 7px; font-size: 16px; }
+    .welcome p { margin: 0; color: #657168; font-size: 14px; line-height: 1.6; }
+    .suggestions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 17px; }
+    .suggestion { padding: 9px 13px; border: 1px solid var(--line); border-radius: 99px; color: #405248; background: white; cursor: pointer; font: inherit; font-size: 12px; transition: border-color .2s, background .2s; }
+    .suggestion:hover { border-color: #9db8a2; background: #f7faf6; }
+    .message { width: fit-content; max-width: 86%; margin: 0 0 14px; padding: 13px 16px; border-radius: 16px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .message.user { margin-left: auto; border-bottom-right-radius: 5px; color: white; background: var(--green); }
+    .message.assistant { border: 1px solid #edf0ea; border-bottom-left-radius: 5px; background: #f7f8f5; }
+    .message.error { color: #963c31; background: #fff4f1; }
+    .composer { padding: 16px 18px 12px; border-top: 1px solid var(--line); }
+    form { display: flex; align-items: center; gap: 10px; }
+    input { width: 100%; padding: 14px 15px; border: 1px solid #e5e9e2; border-radius: 13px; outline: none; color: var(--ink); background: #fbfcfa; font: inherit; font-size: 14px; }
+    input:focus { border-color: #85a88e; box-shadow: 0 0 0 3px #2e694d14; }
+    input::placeholder { color: #9aa39b; }
+    .send { display: grid; flex: 0 0 46px; width: 46px; height: 46px; place-items: center; border: 0; border-radius: 13px; color: white; background: var(--green); cursor: pointer; }
+    .send:hover { background: var(--green-dark); }
+    .send:disabled, input:disabled { opacity: .6; cursor: wait; }
+    .hint { margin: 9px 4px 0; color: #929b93; font-size: 11px; }
+    footer { margin-top: 23px; color: #8a938c; text-align: center; font-size: 11px; }
+    @media (max-width: 560px) {
+      .shell { padding: 19px 15px; }
+      main { margin-top: 45px; }
+      .intro { margin-bottom: 24px; }
+      .messages { min-height: 300px; padding: 16px; }
+      .badge { font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand"><span class="brand-icon" aria-hidden="true">✦</span> roamly</div>
+      <span class="badge">Your personal travel sidekick</span>
+    </header>
+    <main>
+      <section class="intro">
+        <div class="eyebrow">A little more wonder</div>
+        <h1>Where to next?</h1>
+        <p>Tell me what you love. I’ll help you find your kind of somewhere.</p>
+      </section>
+      <section class="chat-card" aria-label="Tourism assistant">
+        <div class="messages" id="messages" aria-live="polite">
+          <div class="welcome" id="welcome">
+            <h2>Hey there, traveler 👋</h2>
+            <p>I can help you discover a destination, plan a day, find local food, or sketch out a whole trip. What are you dreaming about?</p>
+            <div class="suggestions">
+              <button class="suggestion" type="button">Plan a weekend in Lisbon</button>
+              <button class="suggestion" type="button">Hidden gems in Japan</button>
+              <button class="suggestion" type="button">A food-lover’s trip to Italy</button>
+            </div>
+          </div>
+        </div>
+        <div class="composer">
+          <form id="chat-form">
+            <input id="chat-input" autocomplete="off" maxlength="4000" placeholder="Ask me anything about your next trip…" aria-label="Your travel question">
+            <button class="send" id="send-button" type="submit" aria-label="Send message">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </form>
+          <div class="hint">Roamly is AI-powered. Always double-check details that may change.</div>
+        </div>
+      </section>
+      <footer>Made for curious people and the places they’re going.</footer>
+    </main>
+  </div>
+  <script>
+    const form = document.getElementById("chat-form");
+    const input = document.getElementById("chat-input");
+    const messagesEl = document.getElementById("messages");
+    const sendButton = document.getElementById("send-button");
+    const history = [];
+
+    function addMessage(role, text, isError = false) {
+      const message = document.createElement("div");
+      message.className = `message ${role}${isError ? " error" : ""}`;
+      message.textContent = text;
+      messagesEl.appendChild(message);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      return message;
+    }
+
+    document.querySelectorAll(".suggestion").forEach((button) => {
+      button.addEventListener("click", () => {
+        input.value = button.textContent;
+        form.requestSubmit();
+      });
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const text = input.value.trim();
+      if (!text || sendButton.disabled) return;
+
+      document.getElementById("welcome")?.remove();
+      history.push({ role: "user", content: text });
+      addMessage("user", text);
+      input.value = "";
+      input.disabled = true;
+      sendButton.disabled = true;
+      const pending = addMessage("assistant", "Finding a little inspiration…");
+
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: history })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Something went wrong. Please try again.");
+        pending.textContent = data.reply;
+        history.push({ role: "assistant", content: data.reply });
+      } catch (error) {
+        pending.classList.add("error");
+        pending.textContent = error.message || "Could not connect to the travel assistant.";
+        history.pop();
+      } finally {
+        input.disabled = false;
+        sendButton.disabled = false;
+        input.focus();
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+    });
+  </script>
+</body>
+</html>
