@@ -83,6 +83,96 @@ def load_config():
     return config
 
 
+def chat_response(body):
+    if not body or len(body) > 64 * 1024:
+        return 400, {"error": "Send a message under 64 KB."}
+    try:
+        payload = json.loads(body)
+    except (ValueError, UnicodeDecodeError):
+        return 400, {"error": "The request was not valid JSON."}
+    if not isinstance(payload, dict):
+        return 400, {"error": "The chat history is invalid."}
+    messages = payload.get("messages")
+    if not isinstance(messages, list) or not messages:
+        return 400, {"error": "Please send a message to get started."}
+
+    cleaned_messages = []
+    for item in messages[-20:]:
+        if (
+            not isinstance(item, dict)
+            or item.get("role") not in ("user", "assistant")
+            or not isinstance(item.get("content"), str)
+        ):
+            return 400, {"error": "The chat history is invalid."}
+        cleaned_messages.append(
+            {"role": item["role"], "content": item["content"][:8000]}
+        )
+
+    try:
+        config = load_config()
+    except RuntimeError as error:
+        return 503, {"error": str(error)}
+    except OSError:
+        return 500, {"error": "Could not read the Azure settings file."}
+
+    endpoint = config["AZURE_OPENAI_ENDPOINT"].rstrip("/")
+    deployment = config["AZURE_OPENAI_DEPLOYMENT"]
+    api_version = config["AZURE_OPENAI_API_VERSION"]
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        *cleaned_messages,
+    ]
+    if urlsplit(endpoint).path.rstrip("/").endswith("/openai/v1"):
+        url = f"{endpoint}/chat/completions"
+        request_payload = {
+            "model": deployment,
+            "messages": messages,
+            "max_completion_tokens": 2000,
+        }
+        if deployment.lower().startswith("gpt-5"):
+            request_payload["reasoning_effort"] = "low"
+    else:
+        url = (
+            f"{endpoint}/openai/deployments/{quote(deployment, safe='')}"
+            f"/chat/completions?{urlencode({'api-version': api_version})}"
+        )
+        request_payload = {
+            "messages": messages,
+            "temperature": 0.7,
+            "max_tokens": 700,
+        }
+    request = Request(
+        url,
+        data=json.dumps(request_payload).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "api-key": config["AZURE_OPENAI_API_KEY"],
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=60) as response:
+            result = json.loads(response.read().decode("utf-8"))
+        reply = result["choices"][0]["message"]["content"]
+        if not isinstance(reply, str) or not reply.strip():
+            raise ValueError("The Azure response did not contain a reply.")
+        return 200, {"reply": reply}
+    except HTTPError as error:
+        print(f"Azure OpenAI returned HTTP {error.code}.")
+        return 502, {
+            "error": (
+                f"Azure OpenAI returned HTTP {error.code}. Check the endpoint, "
+                "deployment name, and API version in .env (or .ENV.txt)."
+            )
+        }
+    except (URLError, TimeoutError):
+        return 502, {
+            "error": "Could not reach Azure OpenAI. Check the endpoint and network connection."
+        }
+    except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError):
+        return 502, {"error": "Azure OpenAI returned an unexpected response."}
+
+
 class TourismBotHandler(BaseHTTPRequestHandler):
     def _send_json(self, status, payload):
         body = json.dumps(payload).encode("utf-8")
@@ -114,90 +204,12 @@ class TourismBotHandler(BaseHTTPRequestHandler):
             return
         try:
             length = int(self.headers.get("Content-Length", "0"))
-            if length <= 0 or length > 64 * 1024:
-                self._send_json(400, {"error": "Send a message under 64 KB."})
-                return
-            payload = json.loads(self.rfile.read(length))
-            messages = payload.get("messages")
-            if not isinstance(messages, list) or not messages:
-                self._send_json(400, {"error": "Please send a message to get started."})
-                return
-            cleaned_messages = []
-            for item in messages[-20:]:
-                if (
-                    not isinstance(item, dict)
-                    or item.get("role") not in ("user", "assistant")
-                    or not isinstance(item.get("content"), str)
-                ):
-                    self._send_json(400, {"error": "The chat history is invalid."})
-                    return
-                cleaned_messages.append(
-                    {"role": item["role"], "content": item["content"][:8000]}
-                )
-            config = load_config()
-        except (ValueError, json.JSONDecodeError):
+            body = self.rfile.read(length) if 0 < length <= 64 * 1024 else b""
+        except ValueError:
             self._send_json(400, {"error": "The request was not valid JSON."})
             return
-        except RuntimeError as error:
-            self._send_json(503, {"error": str(error)})
-            return
-        except OSError:
-            self._send_json(500, {"error": "Could not read the Azure settings file."})
-            return
-
-        endpoint = config["AZURE_OPENAI_ENDPOINT"].rstrip("/")
-        deployment = config["AZURE_OPENAI_DEPLOYMENT"]
-        api_version = config["AZURE_OPENAI_API_VERSION"]
-        messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            *cleaned_messages,
-        ]
-        if urlsplit(endpoint).path.rstrip("/").endswith("/openai/v1"):
-            url = f"{endpoint}/chat/completions"
-            request_payload = {
-                "model": deployment,
-                "messages": messages,
-                "max_completion_tokens": 2000,
-            }
-            if deployment.lower().startswith("gpt-5"):
-                request_payload["reasoning_effort"] = "low"
-        else:
-            url = (
-                f"{endpoint}/openai/deployments/{quote(deployment, safe='')}"
-                f"/chat/completions?{urlencode({'api-version': api_version})}"
-            )
-            request_payload = {
-                "messages": messages,
-                "temperature": 0.7,
-                "max_tokens": 700,
-            }
-        request_body = json.dumps(request_payload).encode("utf-8")
-        request = Request(
-            url,
-            data=request_body,
-            headers={
-                "Content-Type": "application/json",
-                "api-key": config["AZURE_OPENAI_API_KEY"],
-            },
-            method="POST",
-        )
-        try:
-            with urlopen(request, timeout=60) as response:
-                result = json.loads(response.read().decode("utf-8"))
-            reply = result["choices"][0]["message"]["content"]
-            if not isinstance(reply, str) or not reply.strip():
-                raise ValueError("The Azure response did not contain a reply.")
-            self._send_json(200, {"reply": reply})
-        except HTTPError as error:
-            print(f"Azure OpenAI returned HTTP {error.code}.")
-            self._send_json(
-                502,
-                {"error": f"Azure OpenAI returned HTTP {error.code}. Check the endpoint, deployment name, and API version in .env (or .ENV.txt)."},
-            )
-        except (URLError, TimeoutError):
-            self._send_json(502, {"error": "Could not reach Azure OpenAI. Check the endpoint and network connection."})
-        except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError):
-            self._send_json(502, {"error": "Azure OpenAI returned an unexpected response."})
+        status, response = chat_response(body)
+        self._send_json(status, response)
 
     def log_message(self, format_string, *args):
         print("%s - %s" % (self.address_string(), format_string % args))

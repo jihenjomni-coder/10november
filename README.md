@@ -12,5 +12,19 @@ the browser.
 2. Run `python server.py` from this folder.
 3. Open <http://localhost:8000>.
 
-The app uses only the Python standard library. Set the `PORT` environment
-variable to use a different local port.
+The local server uses only the Python standard library. Set the `PORT`
+environment variable to use a different local port.
+
+## Deploy to Vercel
+
+The FastAPI entrypoint serves both the page and `/api/chat`. Add these
+environment variables in the Vercel project settings before deploying:
+
+- `AZURE_OPENAI_ENDPOINT`
+- `AZURE_OPENAI_DEPLOYMENT`
+- `AZURE_OPENAI_API_VERSION`
+- `AZURE_OPENAI_API_KEY`
+
+Use the Azure deployment name (not a deployment timestamp or display label).
+After adding or changing variables, redeploy the project. Keep API keys in
+Vercel's environment settings; never commit them to the repository.
